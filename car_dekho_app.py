@@ -1,61 +1,41 @@
 import streamlit as st
 import pandas as pd
-import joblib
 import numpy as np
+import joblib
 
 # Load the trained model and preprocessing steps
-model = joblib.load('D:\\Guvi\\projects\\Car_Dekho\\car_price_prediction_model.pkl')
-label_encoders = joblib.load('D:\\Guvi\\projects\\Car_Dekho\\label_encoders.pkl')
-scalers = joblib.load('D:\\Guvi\\projects\\Car_Dekho\\scalers.pkl')
+model = joblib.load('D:/ALML/code/car_dekho/.ipynb_checkpoints/final_random_forest_model1.pkl')
+label_encoders = joblib.load('D:/ALML/code/car_dekho/.ipynb_checkpoints/label_encoder.pkl')
+scalers = joblib.load('D:/ALML/code/car_dekho/.ipynb_checkpoints/min_max.pkl') # Assuming this is your loaded scaler for inverse transformation
 
 # Load dataset for filtering and identifying similar data
-data = pd.read_csv('D:\\Guvi\\projects\\Car_Dekho\\car_dekho_cleaned_dataset_Raw.csv')
+data = pd.read_csv(r'D:\ALML\code\car_dekho\.ipynb_checkpoints\cleaned_cardata.csv')
 
 # Set pandas option to handle future downcasting behavior
 pd.set_option('future.no_silent_downcasting', True)
 
 # Features used for training
-features = ['ft', 'bt', 'km', 'transmission', 'ownerNo', 'oem', 'model', 'modelYear', 'variantName', 'City', 'mileage', 'Seats', 'car_age', 'brand_popularity', 'mileage_normalized']
+features = ['Mileage', 'Model_year', 'Kilometer_Driven', 'Engine_displacement', 'Fuel_type', 'Model',
+            'Transmission', 'Owner_No.', 'Body_type', 'City', 'Max_power', 'Car_Age', 'Mileage_normalized']
 
-# Function to filter data based on user selections
-def filter_data(oem=None, model=None, body_type=None, fuel_type=None, seats=None):
-    filtered_data = data.copy()
-    if oem:
-        filtered_data = filtered_data[filtered_data['oem'] == oem]
-    if model:
-        filtered_data = filtered_data[filtered_data['model'] == model]
-    if body_type:
-        filtered_data = filtered_data[filtered_data['bt'] == body_type]
-    if fuel_type:
-        filtered_data = filtered_data[filtered_data['ft'] == fuel_type]
-    if seats:
-        filtered_data = filtered_data[filtered_data['Seats'] == seats]
-    return filtered_data
-
-# Preprocessing function for user input
+# Function to preprocess input data
 def preprocess_input(df):
-    df['car_age'] = 2024 - df['modelYear']
-    brand_popularity = data.groupby('oem')['price'].mean().to_dict()
-    df['brand_popularity'] = df['oem'].map(brand_popularity)
-    df['mileage_normalized'] = df['mileage'] / df['car_age']
-
-    # Apply label encoding
-    for column in ['ft', 'bt', 'transmission', 'oem', 'model', 'variantName', 'City']:
-        if column in df.columns and column in label_encoders:
-            df[column] = df[column].apply(lambda x: label_encoders[column].transform([x])[0])
-
-    # Apply min-max scaling
-    for column in ['km', 'ownerNo', 'modelYear']:
-        if column in df.columns and column in scalers:
-            df[column] = scalers[column].transform(df[[column]])
-
+    df['Car_Age'] = 2024 - df['Model_year']
+    df['Mileage_normalized'] = df['Mileage'] / df['Car_Age']
     return df
 
 # Streamlit Application
+st.set_page_config(page_title="Car Price Prediction", page_icon=":red_car:", layout="wide")
 st.title("Car Price Prediction")
 
 # Sidebar for user inputs
 st.sidebar.header('Input Car Features')
+# Streamlit Application
+
+#car image path
+car_image_path=r"C:\Users\Kalaiyarasi S\Searches\Downloads\sports-car-logo-clipart-design-vector-43891135.png"
+# Display the image of the car (after the output)
+st.image(car_image_path, caption="Sample Car Image",use_column_width=True)
 
 # Set background colors
 input_background_color = "lightcoral"  # Light maroon color
@@ -74,8 +54,10 @@ st.markdown(
     .result-container {{
         text-align: center;
         background-color: {result_background_color};
-        padding: 20px;
+        padding: 10px;  /* Reduced padding */
         border-radius: 10px;
+        width: 70%;  /* Reduced width to decrease container size */
+        margin: 0 auto;  /* Center container with auto margin */
     }}
     .prediction-title {{
         font-size: 28px;
@@ -98,67 +80,41 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Get user inputs with visual representation
-def visual_selectbox(label, options, index=0):
-    selected_option = st.sidebar.selectbox(label, options, index=index)
-    return selected_option
-
 # Get user inputs in a defined order
-selected_oem = visual_selectbox('1. Original Equipment Manufacturer (OEM)', data['oem'].unique())
+selected_Model = st.sidebar.selectbox('1. Car Model', data['Model'].unique())
 
-filtered_data = filter_data(oem=selected_oem)
-selected_model = visual_selectbox('2. Car Model', filtered_data['model'].unique())
-
-filtered_data = filter_data(oem=selected_oem, model=selected_model)
-body_type = visual_selectbox('3. Body Type', filtered_data['bt'].unique())
-
-filtered_data = filter_data(oem=selected_oem, model=selected_model, body_type=body_type)
-fuel_type = visual_selectbox('4. Fuel Type', filtered_data['ft'].unique())
-
-filtered_data = filter_data(oem=selected_oem, model=selected_model, body_type=body_type, fuel_type=fuel_type)
-transmission = visual_selectbox('5. Transmission Type', filtered_data['transmission'].unique())
-
-filtered_data = filter_data(oem=selected_oem, model=selected_model, body_type=body_type, fuel_type=fuel_type)
-seat_count = visual_selectbox('6. Seats', filtered_data['Seats'].unique())
-
-filtered_data = filter_data(oem=selected_oem, model=selected_model, body_type=body_type, fuel_type=fuel_type, seats=seat_count)
-selected_variant = visual_selectbox('7. Variant Name', filtered_data['variantName'].unique())
-
-modelYear = st.sidebar.number_input('8. Year of Manufacture', min_value=1980, max_value=2024, value=2015)
-
-ownerNo = st.sidebar.number_input('9. Number of Previous Owners', min_value=0, max_value=10, value=1)
-
-km = st.sidebar.number_input('10. Kilometers Driven', min_value=0, max_value=500000, value=10000)
+filtered_data = data[data['Model'] == selected_Model]
+Body_type = st.sidebar.selectbox('2. Body Type', filtered_data['Body_type'].unique())
+Fuel_type = st.sidebar.selectbox('3. Fuel Type', filtered_data['Fuel_type'].unique())
+Transmission = st.sidebar.selectbox('4. Transmission Type', filtered_data['Transmission'].unique())
+ModelYear = st.sidebar.number_input('5. Model Year', min_value=1980, max_value=2024, value=2015)
+OwnerNo = st.sidebar.number_input('6. Number of Previous Owners', min_value=0, max_value=10, value=1)
+KilometersDriven = st.sidebar.number_input('7. Kilometers Driven', min_value=0, max_value=500000, value=10000)
 
 # Adjust mileage slider
-min_mileage = np.floor(filtered_data['mileage'].min())
-max_mileage = np.ceil(filtered_data['mileage'].max())
+min_mileage = np.floor(filtered_data['Mileage'].min())
+max_mileage = np.ceil(filtered_data['Mileage'].max())
 
-# Ensure mileage slider has an interval of 0.5
-min_mileage = float(min_mileage)
-max_mileage = float(max_mileage)
-
-mileage = st.sidebar.slider('11. Mileage (kmpl)', min_value=min_mileage, max_value=max_mileage, value=min_mileage, step=0.5)
-
-city = visual_selectbox('12. City', data['City'].unique())
+Mileage = st.sidebar.slider('8. Mileage (kmpl)', min_value=float(min_mileage), max_value=float(max_mileage), value=float(min_mileage), step=0.5)
+City = st.sidebar.selectbox('9. City', data['City'].unique())
+Max_power = st.sidebar.number_input('10. Max Power (bhp)', min_value=0, max_value=1000, value=100)
+Engine_displacement = st.sidebar.number_input('11. Engine Displacement (cc)', min_value=0, max_value=10000, value=1000)
 
 # Create a DataFrame for user input
 user_input_data = {
-    'ft': [fuel_type],
-    'bt': [body_type],
-    'km': [km],
-    'transmission': [transmission],
-    'ownerNo': [ownerNo],
-    'oem': [selected_oem],
-    'model': [selected_model],
-    'modelYear': [modelYear],
-    'variantName': [selected_variant],
-    'City': [city],
-    'mileage': [mileage],
-    'Seats': [seat_count],
-    'car_age': [2024 - modelYear],
-    'brand_popularity': [data.groupby('oem')['price'].mean().to_dict().get(selected_oem)],
-    'mileage_normalized': [mileage / (2024 - modelYear)]
+    'Fuel_type': [Fuel_type],
+    'Body_type': [Body_type],
+    'Kilometer_Driven': [KilometersDriven],
+    'Transmission': [Transmission],
+    'Owner_No.': [OwnerNo],
+    'Model': [selected_Model],
+    'Model_year': [ModelYear],
+    'City': [City],
+    'Mileage': [Mileage],
+    'Max_power': [Max_power],
+    'Engine_displacement': [Engine_displacement],
+    'Car_Age': [2024 - ModelYear],
+    'Mileage_normalized': [Mileage / (2024 - ModelYear)]
 }
 
 user_df = pd.DataFrame(user_input_data)
@@ -169,23 +125,34 @@ user_df = user_df[features]
 # Preprocess user input data
 user_df = preprocess_input(user_df)
 
+# Apply label encoding
+for column in ['Fuel_type', 'Body_type', 'Transmission', 'Model', 'City']:
+    if column in user_df.columns and column in label_encoders:
+        user_df[column] = user_df[column].apply(lambda x: label_encoders[column].transform([x])[0])
+
 # Button to trigger prediction
 if st.sidebar.button('Predict'):
     if user_df.notnull().all().all():
         try:
             # Make prediction
-            prediction = model.predict(user_df)
-            
+            predicted_price = model.predict(user_df)
+
+            # Inverse transform the predicted price to get it back to the original scale
+            predicted_price_norm = scalers.inverse_transform([[predicted_price[0]]])[0][0]
+
+            # Display the predicted price
             st.markdown(f"""
                 <div class="result-container">
                     <h2 class="prediction-title">Predicted Car Price</h2>
-                    <p class="prediction-value">₹{prediction[0]:,.2f}</p>
-                    <p class="info">Car Age: {user_df['car_age'][0]} years</p>
-                    <p class="info">Efficiency Score: {user_df['mileage_normalized'][0]:,.2f} km/year</p>
+                    <p class="prediction-value">₹{predicted_price_norm:,.2f}</p>  <!-- Use normalized value -->
+                    <p class="info">Car Age: {user_df['Car_Age'][0]} years</p>
+                    <p class="info">Efficiency Score: {user_df['Mileage_normalized'][0]:,.2f} km/year</p>
                 </div>
             """, unsafe_allow_html=True)
+
         except Exception as e:
             st.error(f"Error in prediction: {e}")
     else:
         missing_fields = [col for col in user_df.columns if user_df[col].isnull().any()]
         st.error(f"Missing fields: {', '.join(missing_fields)}. Please fill all required fields.")
+
